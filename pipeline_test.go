@@ -1,4 +1,4 @@
-package pipeline
+package pipeline_test
 
 import (
     "bytes"
@@ -8,6 +8,7 @@ import (
     "slices"
     "sync"
     "time"
+    "github.com/flxch/pipeline"
 )
 
 
@@ -98,8 +99,8 @@ func TestInOut(t *testing.T) {
 
     // Create a simple pipeline with a single spout and a single sink.  Read
     // values are copied to the output.
-    p := New(slog.Default(), 16, 1024, 100 * time.Microsecond)
-    ch := AddSpout(p, "input", inbuf,
+    p := pipeline.New(slog.Default(), 16, 1024, 100 * time.Microsecond)
+    ch := pipeline.AddSpout(p, "input", inbuf,
         func(in []byte) (byte, error) {
             if len(in) != 1 {
                 return 0, fmt.Errorf("failed to convert input data")
@@ -107,7 +108,7 @@ func TestInOut(t *testing.T) {
             t.Logf("input: %c", in[0])
             return in[0], nil
         })
-    AddSink(p, "output", ch, outbuf,
+    pipeline.AddSink(p, "output", ch, outbuf,
         func(data byte) ([]byte, error) {
             t.Logf("output: %c", data)
             return[]byte{data}, nil
@@ -146,8 +147,8 @@ func TestStatelessStage(t *testing.T) {
     // and transforms odd numbers by incrementing them.  Values are also dropped
     // at the sink when they are too big.  Note that the spout and sink read and
     // output byte values whereas the stage operates in the int type.
-    p := New(slog.Default(), 16, 1024, 100 * time.Microsecond)
-    inch := AddSpout(p, "input", inbuf,
+    p := pipeline.New(slog.Default(), 16, 1024, 100 * time.Microsecond)
+    inch := pipeline.AddSpout(p, "input", inbuf,
         func(in []byte) (int, error) {
             t.Logf("input: %v", in)
             if len(in) != 1 {
@@ -156,7 +157,7 @@ func TestStatelessStage(t *testing.T) {
             n := int(in[0])
             return n, nil
         })
-    outch := AddStage(p, "stage", inch,
+    outch := pipeline.AddStage(p, "stage", inch,
         func(n int, out chan<- int) error {
             if n % 2 == 0 {
                 t.Logf("stage: dropping %d", n)
@@ -166,7 +167,7 @@ func TestStatelessStage(t *testing.T) {
             }
             return nil
         })
-    AddSink(p, "output", outch, outbuf,
+    pipeline.AddSink(p, "output", outch, outbuf,
         func(n int) ([]byte, error) {
             if n > 255 {
                 return nil, fmt.Errorf("value too big")
@@ -198,8 +199,8 @@ func TestStatefulStage(t *testing.T) {
     inbuf := newInput(input)
     outbuf := bytes.NewBuffer(nil)
 
-    p := New(slog.Default(), 16, 1024, 100 * time.Microsecond)
-    inch := AddSpout(p, "input", inbuf,
+    p := pipeline.New(slog.Default(), 16, 1024, 100 * time.Microsecond)
+    inch := pipeline.AddSpout(p, "input", inbuf,
         func(in []byte) (int, error) {
             t.Logf("input: %v", in)
             if len(in) != 1 {
@@ -211,7 +212,7 @@ func TestStatefulStage(t *testing.T) {
     // The stage aggregates the received values.  It sends the aggregation if it
     // execeeds a threshold and resets the aggregation.
     var aggreg int
-    outch := AddStage(p, "stage", inch,
+    outch := pipeline.AddStage(p, "stage", inch,
         func(n int, out chan<- int) error {
             t.Logf("stage: state update %d -> %d", aggreg, aggreg + n)
             aggreg += n
@@ -221,7 +222,7 @@ func TestStatefulStage(t *testing.T) {
             }
             return nil
         })
-    AddSink(p, "output", outch, outbuf,
+    pipeline.AddSink(p, "output", outch, outbuf,
         func(n int) ([]byte, error) {
             if n > 255 {
                 return nil, fmt.Errorf("value too big")
@@ -260,7 +261,7 @@ func TestMultiStage(t *testing.T) {
     evens := bytes.NewBuffer(nil)
     odds := bytes.NewBuffer(nil)
 
-    p := New(slog.Default(), 16, 1024, 100 * time.Microsecond)
+    p := pipeline.New(slog.Default(), 16, 1024, 100 * time.Microsecond)
     inop := func(in []byte) (int, error) {
         if len(in) != 1 {
             return 0, fmt.Errorf("invalid input value")
@@ -268,12 +269,12 @@ func TestMultiStage(t *testing.T) {
         n := int(in[0])
         return n, nil
     }
-    inch0 := AddSpout(p, "input0", inbuf, inop)
-    inch1 := AddSpout(p, "input1", inbuf, inop)
+    inch0 := pipeline.AddSpout(p, "input0", inbuf, inop)
+    inch1 := pipeline.AddSpout(p, "input1", inbuf, inop)
     // The pipeline stage receives input over two channels.  It sends even
     // numbers to the first output channel and odd numbers to the second output
     // channel.
-    outchs := AddStageNM(p, "stage", []<-chan int{inch0, inch1}, 2,
+    outchs := pipeline.AddStageNM(p, "stage", []<-chan int{inch0, inch1}, 2,
         func(n int, outs ...chan<- int) error {
             if n % 2 == 0 {
                 outs[0] <- n
@@ -288,8 +289,8 @@ func TestMultiStage(t *testing.T) {
         }
         return []byte{byte(n)}, nil
     }
-    AddSink(p, "output0", outchs[0], evens, outop)
-    AddSink(p, "output1", outchs[1], odds, outop)
+    pipeline.AddSink(p, "output0", outchs[0], evens, outop)
+    pipeline.AddSink(p, "output1", outchs[1], odds, outop)
 
     // Run pipeline.
     p.Run()
