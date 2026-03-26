@@ -42,7 +42,7 @@ func main() {
         })
     // Sink: Converts data to []byte and writes it to outbuf.  The sink's input
     // channel is the output channel of the filter stage.
-    pipeline.AddSink(p, "sink", outch, outbuf, func(data int) ([]byte, error) { return[]byte{byte(data)}, nil })
+    pipeline.AddSink(p, "sink", outch, outbuf, func(data int) ([]byte, error) { return []byte{byte(data)}, nil })
 
     // Run pipeline.
     p.Run()
