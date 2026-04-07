@@ -29,7 +29,8 @@ func main() {
     // inbuf.
     p := pipeline,New(nil, 1, 1, 0)
     // Spout: Reads from inbuf and converts it to int.
-    inch := pipeline.AddSpout(p, "spout", inbuf, func(in []byte) (int, error) { return int(in[0]), nil })
+    inch := pipeline.AddSpout(p, "spout", inbuf,
+        func(in []byte) (int, error) { return int(in[0]), nil })
     // Stage: Filters data (only forward upper and lower case letters to the
     // next stage).  The stage's input channel is the output channel of the
     // spout.
@@ -42,7 +43,8 @@ func main() {
         })
     // Sink: Converts data to []byte and writes it to outbuf.  The sink's input
     // channel is the output channel of the filter stage.
-    pipeline.AddSink(p, "sink", outch, outbuf, func(data int) ([]byte, error) { return []byte{byte(data)}, nil })
+    pipeline.AddSink(p, "sink", outch, outbuf,
+        func(data int) ([]byte, error) { return []byte{byte(data)}, nil })
 
     // Run pipeline.
     p.Run()
@@ -58,6 +60,15 @@ func main() {
 }
 ```
 
+## Notes
+
+The package is under development.  Its API might change.  Feedback is
+welcomed.
+
 ## Alternative Pipeline Packages
 
+Incomplete list of pipeline packages:
+
 * https://github.com/deliveryhero/pipeline
+* ...
+
